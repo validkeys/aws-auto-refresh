@@ -1,0 +1,9 @@
+{
+  "accessToken": "eyJraWQiOiJleHBpcmVkLWtleSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJ0ZXN0LXVzZXIiLCJpc3MiOiJodHRwczovL3Rlc3QtaWRwLmV4YW1wbGUuY29tIiwiZXhwIjoxNjA5NDU5MjAwfQ.expired-signature",
+  "refreshToken": "Atzr|ExpiredToken1234567890",
+  "expiresAt": "2021-01-01T00:00:00Z",
+  "region": "ca-central-1",
+  "startUrl": "https://test-sso.awsapps.com/start/#",
+  "clientId": "mock-client-id-1234567890",
+  "clientSecret": "mock-client-secret-abcdefghijklmnopqrstuvwxyz1234567890"
+}
