@@ -169,10 +169,10 @@ async function refreshTokenIfNeeded() {
       notifier.notifyError(error.message);
     }
     
-    // Warn if too many consecutive failures
-    if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+    // Warn if too many consecutive failures (only once per streak)
+    if (consecutiveFailures === MAX_CONSECUTIVE_FAILURES) {
       logger.warning(
-        `${MAX_CONSECUTIVE_FAILURES} consecutive failures detected. ` +
+        `⚠️  ${MAX_CONSECUTIVE_FAILURES} consecutive failures detected. ` +
         'Consider checking your configuration and network connection.'
       );
     }

@@ -263,36 +263,80 @@ async function getSsoStartUrl() {
 
 /**
  * Computes the full path to the AWS SSO cache file for the configured session
- * 
+ *
  * AWS CLI stores cache files with filenames that are SHA1 hashes of the SSO start URL.
  * This function replicates that logic to find the correct cache file.
- * 
+ *
+ * If the computed filename doesn't exist, this function will scan all cache files
+ * in the directory to find one with a matching startUrl. This handles cases where
+ * AWS CLI versions compute the hash differently.
+ *
  * @async
  * @function getCacheFilePath
  * @returns {Promise<string>} Absolute path to cache file
  * @throws {Error} If cache file doesn't exist (user needs to run aws sso login)
- * 
+ *
  * @example
  * const cachePath = await getCacheFilePath();
  * // => '/Users/username/.aws/sso/cache/a1b2c3d4e5f6.json'
  */
 async function getCacheFilePath() {
   const cacheDir = expandHomeDir(config.awsSsoCacheDir);
-  
-  // AWS CLI uses SHA1 of the SSO start URL as the cache filename
   const startUrl = await getSsoStartUrl();
-  const filename = `${sha1(startUrl)}.json`;
-  const cachePath = path.join(cacheDir, filename);
-  
-  logger.debug('Computed cache file path', { cachePath, startUrl });
-  
+
+  // Try computed filename first (standard behavior)
+  const computedFilename = `${sha1(startUrl)}.json`;
+  const computedPath = path.join(cacheDir, computedFilename);
+
+  logger.debug('Computed cache file path', { cachePath: computedPath, startUrl });
+
   try {
-    await fsPromises.access(cachePath);
+    await fsPromises.access(computedPath);
+    return computedPath;
   } catch (error) {
-    throw new Error(getReloginErrorMessage(`Cache file not found: ${cachePath}`));
+    // Computed path doesn't exist, search for cache file with matching startUrl
+    logger.debug('Computed cache path not found, searching directory for matching startUrl');
+
+    try {
+      const files = await fsPromises.readdir(cacheDir);
+      const jsonFiles = files.filter(f => f.endsWith('.json'));
+
+      // Search each cache file for matching startUrl
+      for (const filename of jsonFiles) {
+        const filePath = path.join(cacheDir, filename);
+        try {
+          const content = await fsPromises.readFile(filePath, 'utf8');
+          const data = JSON.parse(content);
+
+          if (data.startUrl === startUrl) {
+            logger.debug('Found cache file with matching startUrl', {
+              cachePath: filePath,
+              startUrl
+            });
+            return filePath;
+          }
+        } catch (err) {
+          // Skip files that can't be read or parsed
+          logger.debug('Skipping invalid cache file', { filename, error: err.message });
+          continue;
+        }
+      }
+
+      // No matching cache file found
+      throw new Error(getReloginErrorMessage(
+        `Cache file not found: ${computedPath}\n` +
+        `No cache file in ${cacheDir} matches startUrl: ${startUrl}`
+      ));
+    } catch (err) {
+      if (err.code === 'ENOENT') {
+        throw new Error(getReloginErrorMessage(
+          `Cache directory not found: ${cacheDir}\n` +
+          `Please ensure AWS CLI is installed and run: aws sso login --profile ${config.awsSsoProfile}`
+        ));
+      }
+      throw err;
+    }
   }
-  
-  return cachePath;
 }
 
 // ============================================================================
