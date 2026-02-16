@@ -45,25 +45,27 @@ node -e "
 const path = require('path');
 require('dotenv').config();
 
-try {
-  const cacheManager = require('./src/cache-manager');
-  const status = cacheManager.getTokenStatus();
-  
-  if (status.error) {
-    console.log('  ❌ Error:', status.error);
-  } else if (status.expired) {
-    console.log('  ❌ Token expired!');
-  } else if (status.needsRefresh) {
-    console.log('  ⚠️  Token expires soon -', status.formattedTimeRemaining, 'remaining');
-    console.log('  📅 Expires at:', new Date(status.expiresAt).toLocaleString());
-  } else {
-    console.log('  ✅ Token is valid');
-    console.log('  ⏰ Time remaining:', status.formattedTimeRemaining);
-    console.log('  📅 Expires at:', new Date(status.expiresAt).toLocaleString());
+(async () => {
+  try {
+    const cacheManager = require('./src/cache-manager');
+    const status = await cacheManager.getTokenStatus();
+
+    if (status.error) {
+      console.log('  ❌ Error:', status.error);
+    } else if (status.expired) {
+      console.log('  ❌ Token expired!');
+    } else if (status.needsRefresh) {
+      console.log('  ⚠️  Token expires soon -', status.formattedTimeRemaining, 'remaining');
+      console.log('  📅 Expires at:', new Date(status.expiresAt).toLocaleString());
+    } else {
+      console.log('  ✅ Token is valid');
+      console.log('  ⏰ Time remaining:', status.formattedTimeRemaining);
+      console.log('  📅 Expires at:', new Date(status.expiresAt).toLocaleString());
+    }
+  } catch (error) {
+    console.log('  ❌ Error:', error.message);
   }
-} catch (error) {
-  console.log('  ❌ Error:', error.message);
-}
+})();
 "
 
 echo ""
