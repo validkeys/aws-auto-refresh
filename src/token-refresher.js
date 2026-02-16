@@ -181,14 +181,14 @@ function sanitizeApiResponse(data) {
 /**
  * Refreshes AWS SSO access token using refresh token via OIDC endpoint
  * 
- * Makes a POST request to AWS OIDC token endpoint following OAuth 2.0 refresh token grant flow.
+ * Makes a POST request to AWS OIDC token endpoint following AWS SSO OIDC token refresh flow.
  * The endpoint validates the refresh token and client credentials, then returns a new access token.
- * 
- * Request Format (application/x-www-form-urlencoded):
- * - grant_type: 'refresh_token'
- * - client_id: OIDC client identifier
- * - client_secret: OIDC client secret
- * - refresh_token: Current refresh token
+ *
+ * Request Format (application/json):
+ * - grantType: 'refresh_token'
+ * - clientId: OIDC client identifier
+ * - clientSecret: OIDC client secret
+ * - refreshToken: Current refresh token
  * 
  * Response Format (JSON):
  * - accessToken: New access token (JWT)
@@ -243,17 +243,18 @@ async function refreshToken(credentials) {
   
   try {
     // Make POST request to OIDC token endpoint
+    // AWS SSO OIDC expects JSON format with camelCase field names
     const response = await axios.post(
       endpoint,
-      new URLSearchParams({
-        grant_type: 'refresh_token',
-        client_id: clientId,
-        client_secret: clientSecret,
-        refresh_token: refreshToken,
-      }),
+      {
+        clientId: clientId,
+        clientSecret: clientSecret,
+        grantType: 'refresh_token',
+        refreshToken: refreshToken,
+      },
       {
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Type': 'application/json',
         },
         timeout: CONSTANTS.OIDC_REQUEST_TIMEOUT_MS, // 30 second timeout
         signal: abortController.signal, // Enable request cancellation
