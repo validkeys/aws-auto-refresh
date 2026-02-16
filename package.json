@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Automatically refresh AWS SSO tokens in the background",
   "main": "src/index.js",
+  "types": "index.d.ts",
   "scripts": {
     "start": "node src/index.js",
     "dev": "LOG_LEVEL=debug node src/index.js",

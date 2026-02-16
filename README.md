@@ -1,5 +1,13 @@
 # AWS SSO Token Auto-Refresh
 
+[![npm version](https://img.shields.io/npm/v/aws-auto-refresh.svg)](https://www.npmjs.com/package/aws-auto-refresh)
+[![CI](https://github.com/yourusername/aws-auto-refresh/workflows/CI/badge.svg)](https://github.com/yourusername/aws-auto-refresh/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/yourusername/aws-auto-refresh/branch/main/graph/badge.svg)](https://codecov.io/gh/yourusername/aws-auto-refresh)
+[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](LICENSE)
+[![Node.js Version](https://img.shields.io/node/v/aws-auto-refresh.svg)](https://nodejs.org)
+[![npm downloads](https://img.shields.io/npm/dm/aws-auto-refresh.svg)](https://www.npmjs.com/package/aws-auto-refresh)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 Automatically refresh AWS SSO tokens in the background, eliminating the need for frequent manual re-authentication during your workday.
 
 ## Overview
@@ -217,6 +225,89 @@ All configuration is done via environment variables in `.env`:
 | `NOTIFY_ON_ERROR` | Notify on refresh error | `true` |
 | `NOTIFY_ON_STARTUP` | Notify when daemon starts | `true` |
 | `NOTIFY_SOUND` | macOS notification sound | `default` |
+
+## Testing
+
+### Running Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode (auto-rerun on changes)
+npm run test:watch
+
+# Run tests with coverage report
+npm run test:coverage
+
+# Type check without running tests
+npm run type-check
+```
+
+### Test Structure
+
+- **Unit Tests:** `tests/unit/*.test.js`
+- **Coverage Threshold:** 70% (branches, functions, lines, statements)
+- **Test Framework:** Jest
+- **Assertion Library:** Jest built-in
+
+### Running Specific Tests
+
+```bash
+# Run only config tests
+npm test -- config.test.js
+
+# Run tests matching pattern
+npm test -- --testNamePattern="token refresh"
+```
+
+### Coverage Reports
+
+After running `npm run test:coverage`, view the coverage report:
+
+```bash
+open coverage/lcov-report/index.html
+```
+
+### Test Files
+
+| Test File | What It Tests |
+|-----------|---------------|
+| `config.test.js` | Configuration loading and validation |
+| `logger.test.js` | Logging functionality |
+| `cache-manager.test.js` | AWS cache file operations |
+| `token-refresher.test.js` | OIDC token refresh logic |
+| `notifier.test.js` | macOS notification system |
+
+### Writing Tests
+
+When contributing tests:
+
+- Use descriptive test names: `should refresh token when expiring soon`
+- Test error conditions and edge cases
+- Mock external dependencies (AWS cache files, OIDC API)
+- Maintain or improve the 70% coverage threshold
+- Follow existing test patterns in `tests/unit/`
+
+### Test Configuration
+
+Jest is configured in `package.json`:
+
+```json
+{
+  "jest": {
+    "testEnvironment": "node",
+    "coverageThreshold": {
+      "global": {
+        "branches": 70,
+        "functions": 70,
+        "lines": 70,
+        "statements": 70
+      }
+    }
+  }
+}
+```
 
 ## Notifications
 
@@ -485,6 +576,24 @@ docker run -d \
 
 Note: macOS notifications won't work inside Docker containers.
 
+## Examples
+
+Practical usage examples are available in the [`examples/`](./examples/) directory:
+
+- **[basic-usage.js](./examples/basic-usage.js)** - Simple daemon setup (equivalent to `npm start`)
+- **[multi-profile.js](./examples/multi-profile.js)** - Managing multiple AWS profiles
+- **[programmatic.js](./examples/programmatic.js)** - Using as a library in your code
+- **[custom-notifications.js](./examples/custom-notifications.js)** - Custom notification handlers (Slack, email, webhooks)
+- **[status-check.js](./examples/status-check.js)** - Checking token status programmatically
+
+Run any example from the project root:
+
+```bash
+node examples/basic-usage.js
+```
+
+See the [examples README](./examples/README.md) for detailed documentation of each example.
+
 ## Advanced Usage
 
 ### Auto-start on boot (macOS)
@@ -678,6 +787,492 @@ The `.gitignore` file excludes:
 - AWS credentials or tokens
 - Log files
 - Cache files
+
+## Error Reference
+
+This section catalogs common errors you may encounter and how to resolve them.
+
+### Configuration Errors
+
+#### `AWS_SSO_PROFILE is required`
+
+**Cause:** The `AWS_SSO_PROFILE` environment variable is not set in your `.env` file.
+
+**Solution:**
+```bash
+# Edit .env and add your AWS profile name
+vim .env
+
+# Add this line:
+AWS_SSO_PROFILE=my-aws-profile
+```
+
+**Find your profile name:**
+```bash
+cat ~/.aws/config | grep -E '^\[profile '
+```
+
+---
+
+#### `AWS_SSO_SESSION is required`
+
+**Cause:** The `AWS_SSO_SESSION` environment variable is not set in your `.env` file.
+
+**Solution:**
+```bash
+# Edit .env and add your SSO session name
+vim .env
+
+# Add this line:
+AWS_SSO_SESSION=my-sso-session
+```
+
+**Find your session name:**
+```bash
+cat ~/.aws/config | grep -E '^\[sso-session '
+```
+
+---
+
+#### `LOG_LEVEL must be one of: debug, info, warn, error`
+
+**Cause:** Invalid value for `LOG_LEVEL` in `.env`.
+
+**Solution:**
+```bash
+# Valid values only
+LOG_LEVEL=info    # or debug, warn, error
+```
+
+---
+
+#### `REFRESH_CHECK_INTERVAL must be greater than 0`
+
+**Cause:** `REFRESH_CHECK_INTERVAL` is set to 0 or negative value.
+
+**Solution:**
+```bash
+# Set to positive number (seconds)
+REFRESH_CHECK_INTERVAL=60  # Check every 60 seconds
+```
+
+---
+
+#### `REFRESH_THRESHOLD must be greater than 0`
+
+**Cause:** `REFRESH_THRESHOLD` is set to 0 or negative value.
+
+**Solution:**
+```bash
+# Set to positive number (seconds)
+REFRESH_THRESHOLD=300  # Refresh 5 minutes before expiry
+```
+
+---
+
+### Cache File Errors
+
+#### `Cache file missing required fields: accessToken, expiresAt`
+
+**Cause:** AWS SSO cache file is corrupted or incomplete. This typically happens if:
+- You haven't run `aws sso login` yet
+- Cache file was manually edited incorrectly
+- Incomplete/interrupted AWS login process
+
+**Solution:**
+```bash
+# Re-login to AWS SSO
+aws sso login --profile your-profile
+
+# Restart daemon
+./scripts/restart.sh
+```
+
+---
+
+#### `Cache file not found`
+
+**Cause:** No cache file exists for your SSO session. This means you haven't logged in yet or the cache file was deleted.
+
+**Solution:**
+```bash
+# Login to AWS SSO (this creates the cache file)
+aws sso login --profile your-profile
+
+# Verify cache file was created
+ls -la ~/.aws/sso/cache/
+
+# Start daemon
+./scripts/start.sh
+```
+
+---
+
+#### `Cannot read cache file: EACCES`
+
+**Cause:** Insufficient permissions to read AWS SSO cache directory.
+
+**Solution:**
+```bash
+# Fix permissions on cache directory
+chmod 700 ~/.aws/sso/cache
+chmod 600 ~/.aws/sso/cache/*
+
+# Restart daemon
+./scripts/restart.sh
+```
+
+---
+
+### Token Refresh Errors
+
+#### `Refresh token is invalid or expired`
+
+**Full error message:**
+```
+⚠️  Your AWS SSO refresh token is invalid or expired.
+
+This typically means you need to re-authenticate with AWS SSO.
+Please run the following command:
+
+  aws sso login --profile your-profile
+
+Then restart this daemon:
+
+  ./scripts/restart.sh
+```
+
+**Cause:** Your refresh token has expired (typically after 90 days) or was invalidated.
+
+**Solution:**
+```bash
+# Re-authenticate with AWS SSO
+aws sso login --profile your-profile
+
+# Restart daemon to pick up new tokens
+./scripts/restart.sh
+```
+
+**Prevention:** Refresh tokens typically last 90 days. Make sure to use the daemon regularly to avoid expiration.
+
+---
+
+#### `Client credentials are invalid`
+
+**Cause:** The `clientId` or `clientSecret` in your cache file is invalid. This can happen if:
+- Cache file was manually edited
+- AWS revoked the client credentials
+- Corrupted cache during write
+
+**Solution:**
+```bash
+# Re-login to get fresh credentials
+aws sso login --profile your-profile
+
+# Restart daemon
+./scripts/restart.sh
+```
+
+---
+
+#### `Invalid response from OIDC endpoint: missing accessToken or expiresIn`
+
+**Cause:** AWS OIDC endpoint returned unexpected response format. This is rare and typically indicates:
+- AWS service issue
+- Network proxy modifying responses
+- Outdated AWS CLI version
+
+**Solution:**
+```bash
+# 1. Check AWS CLI version (should be >= 2.0)
+aws --version
+
+# 2. Update AWS CLI if needed
+# macOS: brew upgrade awscli
+# Linux: pip install --upgrade awscli
+
+# 3. Try manual login
+aws sso login --profile your-profile
+
+# 4. Check daemon logs for full error details
+./scripts/logs.sh --lines 50
+```
+
+---
+
+#### `Token refresh canceled due to shutdown`
+
+**Cause:** Daemon was stopped while a token refresh was in progress. This is normal during shutdown.
+
+**Solution:** No action needed. This is an informational message that appears when you stop the daemon during a refresh operation.
+
+---
+
+### Network Errors
+
+#### `ECONNREFUSED` - Connection Refused
+
+**Full error message:**
+```
+Network error during token refresh: ECONNREFUSED
+Cannot connect to AWS OIDC endpoint
+```
+
+**Cause:** Cannot connect to AWS OIDC endpoint. Possible reasons:
+- No internet connection
+- Corporate firewall blocking AWS endpoints
+- VPN required but not connected
+- AWS service outage
+
+**Solution:**
+```bash
+# 1. Check internet connectivity
+ping 8.8.8.8
+
+# 2. Check if you can reach AWS
+ping oidc.us-east-1.amazonaws.com
+
+# 3. If behind corporate firewall, check proxy settings
+env | grep -i proxy
+
+# 4. Try connecting to AWS directly
+aws sts get-caller-identity
+
+# 5. Check AWS service health
+# Visit: https://status.aws.amazon.com/
+```
+
+---
+
+#### `ETIMEDOUT` - Connection Timeout
+
+**Cause:** Request to AWS OIDC endpoint timed out (default: 30 seconds). Possible reasons:
+- Slow internet connection
+- AWS service degradation
+- Network congestion
+
+**Solution:**
+```bash
+# 1. Check network latency to AWS
+ping -c 5 oidc.us-east-1.amazonaws.com
+
+# 2. View logs for retry attempts
+./scripts/logs.sh --follow
+
+# 3. Daemon will automatically retry with backoff
+# If persistent, check AWS service health
+```
+
+The daemon automatically retries failed requests up to 3 times with 10-second delays.
+
+---
+
+#### `ENOTFOUND` - DNS Resolution Failed
+
+**Cause:** Cannot resolve AWS OIDC endpoint hostname. Possible reasons:
+- DNS server issues
+- No internet connection
+- Corporate DNS blocking AWS domains
+
+**Solution:**
+```bash
+# 1. Check DNS resolution
+nslookup oidc.us-east-1.amazonaws.com
+
+# 2. Try alternate DNS (Google DNS)
+# macOS: System Preferences > Network > Advanced > DNS
+# Add: 8.8.8.8 and 8.8.4.4
+
+# 3. Flush DNS cache
+# macOS: sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
+# Linux: sudo systemd-resolve --flush-caches
+
+# 4. Restart daemon
+./scripts/restart.sh
+```
+
+---
+
+### Process Management Errors
+
+#### `pm2` - Process Already Running
+
+**Error:** When running `./scripts/start.sh` shows process already exists.
+
+**Solution:**
+```bash
+# Check if already running
+pm2 list
+
+# If running, restart instead
+./scripts/restart.sh
+
+# Or stop and start fresh
+./scripts/stop.sh
+./scripts/start.sh
+```
+
+---
+
+#### `pm2` - Process Not Found
+
+**Error:** When running `./scripts/stop.sh` shows "process or namespace not found".
+
+**Solution:**
+Process is not running. This is normal if you haven't started it yet.
+
+```bash
+# Start the daemon
+./scripts/start.sh
+
+# Verify it's running
+pm2 list
+```
+
+---
+
+#### High Memory Usage
+
+**Symptom:** Daemon using more than 100MB RAM continuously.
+
+**Solution:**
+```bash
+# Check memory usage
+pm2 list
+
+# View detailed stats
+pm2 monit
+
+# If memory leak suspected, restart
+./scripts/restart.sh
+
+# Monitor for a while
+watch -n 10 'pm2 list'
+
+# If problem persists, check logs for errors
+./scripts/logs.sh --lines 100
+```
+
+Normal memory usage: 40-50MB
+
+---
+
+#### CPU Spikes
+
+**Symptom:** Daemon using high CPU continuously.
+
+**Solution:**
+```bash
+# Check current CPU usage
+pm2 list
+
+# Check if refresh loop is stuck
+./scripts/logs.sh --follow
+
+# Restart daemon
+./scripts/restart.sh
+
+# If problem persists, check REFRESH_CHECK_INTERVAL
+cat .env | grep REFRESH_CHECK_INTERVAL
+
+# Increase interval if too aggressive
+vim .env
+# Set: REFRESH_CHECK_INTERVAL=120
+./scripts/restart.sh
+```
+
+Normal CPU usage: Near 0% (spikes to 1-2% during checks)
+
+---
+
+### Notification Errors
+
+#### `Failed to send notification`
+
+**Cause:** macOS notification system is not available or denied permission.
+
+**Solution:**
+```bash
+# 1. Check notification permissions
+# System Preferences > Notifications > Node or Terminal
+# Ensure notifications are allowed
+
+# 2. Disable notifications if not needed
+vim .env
+# Set: NOTIFY_ON_SUCCESS=false
+# Set: NOTIFY_ON_ERROR=false
+./scripts/restart.sh
+```
+
+Notifications are optional. The daemon will work fine without them.
+
+---
+
+### Testing and Development Errors
+
+#### `Jest: Test suite failed to run`
+
+**Cause:** Jest configuration or test file syntax error.
+
+**Solution:**
+```bash
+# Run with verbose output
+npm test -- --verbose
+
+# Check for syntax errors
+npm run type-check
+
+# Clear Jest cache
+jest --clearCache
+npm test
+```
+
+---
+
+#### `Coverage threshold not met`
+
+**Cause:** Your changes reduced code coverage below 70%.
+
+**Solution:**
+```bash
+# Check current coverage
+npm run test:coverage
+
+# View coverage report
+open coverage/lcov-report/index.html
+
+# Add tests for uncovered code
+# Then run coverage again
+npm run test:coverage
+```
+
+---
+
+### Debug Mode
+
+For any error that's difficult to diagnose, enable debug logging:
+
+```bash
+# Edit .env
+LOG_LEVEL=debug
+
+# Restart daemon
+./scripts/restart.sh
+
+# Watch detailed logs
+./scripts/logs.sh --follow
+```
+
+Debug logs include:
+- Configuration values
+- Cache file paths and contents (metadata only, not tokens)
+- Full API request/response details (tokens redacted)
+- Detailed error stack traces
+- Timing information
+
+**Remember:** Never share logs publicly without reviewing them for sensitive information first.
+
+---
 
 ## FAQ
 
